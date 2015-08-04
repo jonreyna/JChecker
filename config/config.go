@@ -7,49 +7,50 @@ import (
 	"os"
 	"time"
 
+	"net"
+
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
 // Contains all config options for LookingGlass
 type JCheckerConfig struct {
-	TempCheckInterval      time.Duration
-	ShowChassisFan         bool
-	ShowChassisEnvironment bool
-	ShowChassisZones       bool
+	// show chassis environment stuff
+	ChassisEnvIntervals    []time.Duration
+	ChassisEnvIPs          []net.IP
+	ChassisEnvConfigFile   string
+
+	// show chassis zones stuff
+	ChassisZonesIntervals  []time.Duration
+	ChassisZonesIPs        []net.IP
+	ChassisZonesConfigFile string
+
+	// NETCONF stuff
+	NetconfUsername        string
+	NetconfPassowrd        string
 }
-
-// Long/short options
-const (
-	CHECK_INTERVAL_LOPT = "check-interval"
-	CHECK_INTERVAL_OPT  = "I"
-
-	SHOW_CHASSIS_FAN_LOPT = "show-chassis-fan"
-	SHOW_CHASSIS_FAN_OPT  = "f"
-
-	SHOW_CHASSIS_ENV_LOPT = "show-chassis-environment"
-	SHOW_CHASSIS_ENV_OPT  = "e"
-
-	SHOW_CHASSIS_ZONES_LOPT = "show-chassis-zones"
-	SHOW_CHASSIS_ZONES_OPT  = "z"
-
-	CONFIG_FILE_LOPT = "config"
-	CONFIG_FILE_OPT  = "c"
-
-	LOG_LEVEL_LOPT = "log-level"
-	LOG_LEVEL_OPT  = "l"
-)
 
 // Default options
 const (
-	DEFAULT_NETCONF_USERNAME   = "admin"
-	DEFAULT_NETCONF_PASSWORD   = "abc123"
-	DEFAULT_LOG_LEVEL          = log.InfoLevel
-	DEFAULT_CHECK_INTERVAL     = time.Duration(15 * time.Minute)
-	DEFAULT_SHOW_CHASSIS_ENV   = true
-	DEFAULT_SHOW_CHASSIS_FAN   = false
-	DEFAULT_SHOW_CHASSIS_ZONES = false
-	DEFAULT_CONFIG_FILE        = "jchecker_ip_list.csv"
+	DEFAULT_LOG_LEVEL = log.InfoLevel
+
+// NETCONF stuff
+	DEFAULT_NETCONF_USERNAME = "admin"
+	DEFAULT_NETCONF_PASSWORD = "abc123"
+	DEFAULT_NETCONF_USERNAME_LOPT = "netconf-user"
+	DEFAULT_NETCONF_USERNAME_OPT = "u"
+	DEFAULT_NETCONF_PASSWORD_LOPT = "netconf-password"
+	DEFAULT_NETCONF_PASSWORD_OPT = "p"
+
+// show chassis environment stuff
+	DEFAULT_CHASSIS_ENV_CONFIG_FILE = "chassis_env.csv"
+	DEFAULT_CHASSIS_ENV_CONFIG_LOPT = "chassis-env-config"
+	DEFAULT_CHASSIS_ENV_CONFIG_OPT = "c"
+
+// show chassis zones stuff
+	DEFAULT_CHASSIS_ZONES_CONFIG_FILE = "chassis_zones.csv"
+	DEFAULT_CHASSIS_ZONES_CONFIG_LOPT = "chassis-zones-config"
+	DEFAULT_CHASSIS_ZONES_CONFIG_OPT = "c"
 )
 
 // Package scope variables to handle
@@ -83,53 +84,75 @@ func init() {
 		log.SetLevel(log.InfoLevel)
 	}
 
+	jCheckerConfig = new(JCheckerConfig)
+
 	jChecker = &cobra.Command{
 		Use:   "JChecker",
 		Short: "JChecker executes requested checks on Juniper devices at user defined time intervals",
-		Long: "JChecker executes requested checks at user defined time intervals.\n" +
-			"It currently supports:\n" +
-			"\t- show chassis environment\n" +
-			"\t- show chassis zones\n",
-		Run: func(cmd *cobra.Command, args []string) {
+		Long: "JChecker executes requested checks at user defined time intervals.\n\n" +
+		"It currently supports:\n" +
+		"    - show chassis environment\n" +
+		"    - show chassis zones\n",
+	}
 
-			if len(args) == 0 {
-				cmd.Help()
-				os.Exit(0)
-			}
-			for _, str := range args {
-				if str == "help" {
-					cmd.Help()
-					os.Exit(0)
-				}
+	jChecker.LocalFlags().StringVarP(
+		&jCheckerConfig.NetconfUsername,
+		DEFAULT_NETCONF_USERNAME_LOPT, DEFAULT_NETCONF_USERNAME_OPT,
+		DEFAULT_NETCONF_USERNAME, "The username used to connect via NETCONF.",
+	)
+
+	jChecker.LocalFlags().StringVarP(
+		&jCheckerConfig.NetconfPassowrd,
+		DEFAULT_NETCONF_PASSWORD_LOPT, DEFAULT_NETCONF_PASSWORD_OPT,
+		DEFAULT_NETCONF_PASSWORD, "The password used to connect via NETCONF.",
+	)
+
+	helpCmd := &cobra.Command{
+		Run: func(cmd *cobra.Command, args []string) {
+			cmd.Help()
+			os.Exit(0)
+		},
+	}
+
+	envRequestCmd := &cobra.Command{
+		Use:   "environment",
+		Short: "Get the chassis environment information.\n",
+		Long:  "Gets the chassis environment from the given list of IP addresses.",
+		Run: func(cmd *cobra.Command, args []string) {
+			if cmd.Flags().Lookup(DEFAULT_CHASSIS_ENV_CONFIG_LOPT).Changed {
+				cntxLog.Info("Default chassis environment config file changed")
 			}
 		},
 	}
 
-	jCheckerConfig = new(JCheckerConfig)
+	envRequestCmd.Flags().StringVarP(
+		&jCheckerConfig.ChassisEnvConfigFile,
+		DEFAULT_CHASSIS_ENV_CONFIG_LOPT, DEFAULT_CHASSIS_ENV_CONFIG_OPT,
+		DEFAULT_CHASSIS_ENV_CONFIG_FILE, "A csv file containing IP addresses with time intervals.",
+	)
+
+	zonesCmd := &cobra.Command{
+		Use:   "zones",
+		Short: "Get the chassis zones information.\n",
+		Long:  "Gets the chassis zones information from the given list of IP addresses and timeouts.",
+		Run: func(cmd *cobra.Command, args []string) {
+			if cmd.Flags().Lookup(DEFAULT_CHASSIS_ZONES_CONFIG_LOPT).Changed {
+				cntxLog.Info("Default chassis zones config file changed")
+			}
+		},
+	}
+
+	zonesCmd.Flags().StringVarP(
+		&jCheckerConfig.ChassisZonesConfigFile,
+		DEFAULT_CHASSIS_ZONES_CONFIG_LOPT, DEFAULT_CHASSIS_ZONES_CONFIG_OPT,
+		DEFAULT_CHASSIS_ZONES_CONFIG_FILE, "A csv file containing IP addresses with time intervals.",
+	)
+
+	jChecker.AddCommand(helpCmd)
+	jChecker.AddCommand(envRequestCmd)
+	jChecker.AddCommand(zonesCmd)
 
 	cntxLog.Debugln("Setting persistent command flags")
-
-	// Set available flags, their defaults,
-	// and their short options
-	jChecker.PersistentFlags().DurationVarP(
-		&jCheckerConfig.TempCheckInterval,
-		CHECK_INTERVAL_LOPT, CHECK_INTERVAL_OPT,
-		DEFAULT_CHECK_INTERVAL, `Default time interval for checks. Valid time units are ms, s, m, h`)
-
-	jChecker.PersistentFlags().BoolVarP(
-		&jCheckerConfig.ShowChassisEnvironment,
-		SHOW_CHASSIS_ENV_LOPT, SHOW_CHASSIS_ENV_OPT,
-		DEFAULT_SHOW_CHASSIS_ENV, `Run "show chassis environment" via NETCONF?`)
-
-	jChecker.PersistentFlags().BoolVarP(
-		&jCheckerConfig.ShowChassisFan,
-		SHOW_CHASSIS_FAN_LOPT, SHOW_CHASSIS_FAN_OPT,
-		DEFAULT_SHOW_CHASSIS_FAN, `Run "show chassis fan" via NETCONF?`)
-
-	jChecker.PersistentFlags().BoolVarP(
-		&jCheckerConfig.ShowChassisZones,
-		SHOW_CHASSIS_ZONES_LOPT, SHOW_CHASSIS_ZONES_OPT,
-		DEFAULT_SHOW_CHASSIS_ZONES, `Run "show chassis zones" via NETCONF?`)
 
 	// This message will be shown to Windows users if Looking Glass is opened from explorer.exe
 	cobra.MousetrapHelpText = `
@@ -151,9 +174,6 @@ func Execute() {
 
 	jChecker.Execute()
 
-	if jChecker.Flags().Lookup("help").Changed {
-		os.Exit(0)
-	}
 }
 
 func GetConfig() JCheckerConfig {
