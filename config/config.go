@@ -4,6 +4,7 @@
 package config
 
 import (
+	"encoding/csv"
 	"os"
 	"time"
 
@@ -16,41 +17,51 @@ import (
 // Contains all config options for LookingGlass
 type JCheckerConfig struct {
 	// show chassis environment stuff
-	ChassisEnvIntervals    []time.Duration
-	ChassisEnvIPs          []net.IP
-	ChassisEnvConfigFile   string
+	ChassisEnvIntervals   []time.Duration
+	ChassisEnvIPs         []net.IP
+	ChassisEnvConfigFile  string
+	ChassisEnvResultsFile string
 
 	// show chassis zones stuff
-	ChassisZonesIntervals  []time.Duration
-	ChassisZonesIPs        []net.IP
-	ChassisZonesConfigFile string
+	ChassisZonesIntervals   []time.Duration
+	ChassisZonesIPs         []net.IP
+	ChassisZonesConfigFile  string
+	ChassisZonesResultsFile string
 
 	// NETCONF stuff
-	NetconfUsername        string
-	NetconfPassowrd        string
+	NetconfUsername string
+	NetconfPassowrd string
 }
 
 // Default options
 const (
 	DEFAULT_LOG_LEVEL = log.InfoLevel
 
-// NETCONF stuff
-	DEFAULT_NETCONF_USERNAME = "admin"
-	DEFAULT_NETCONF_PASSWORD = "abc123"
+	// NETCONF stuff
+	DEFAULT_NETCONF_USERNAME      = "admin"
+	DEFAULT_NETCONF_PASSWORD      = "abc123"
 	DEFAULT_NETCONF_USERNAME_LOPT = "netconf-user"
-	DEFAULT_NETCONF_USERNAME_OPT = "u"
+	DEFAULT_NETCONF_USERNAME_OPT  = "u"
 	DEFAULT_NETCONF_PASSWORD_LOPT = "netconf-password"
-	DEFAULT_NETCONF_PASSWORD_OPT = "p"
+	DEFAULT_NETCONF_PASSWORD_OPT  = "p"
 
-// show chassis environment stuff
-	DEFAULT_CHASSIS_ENV_CONFIG_FILE = "chassis_env.csv"
-	DEFAULT_CHASSIS_ENV_CONFIG_LOPT = "chassis-env-config"
-	DEFAULT_CHASSIS_ENV_CONFIG_OPT = "c"
+	// show chassis environment stuff
+	DEFAULT_CHASSIS_ENV_CONFIG_FILE  = "chassis_env.csv"
+	DEFAULT_CHASSIS_ENV_RESULTS_FILE = "chassis_env_results.csv"
+	// show chassis environment config stuff
+	DEFAULT_CHASSIS_ENV_CONFIG_LOPT       = "chassis-env-config"
+	DEFAULT_CHASSIS_ENV_CONFIG_OPT        = "c"
+	DEFAULT_CHASSIS_ENV_RESULTS_FILE_LOPT = "chassis-env-results"
+	DEFAULT_CHASSIS_ENV_RESULTS_FILE_OPT  = "r"
 
-// show chassis zones stuff
-	DEFAULT_CHASSIS_ZONES_CONFIG_FILE = "chassis_zones.csv"
-	DEFAULT_CHASSIS_ZONES_CONFIG_LOPT = "chassis-zones-config"
-	DEFAULT_CHASSIS_ZONES_CONFIG_OPT = "c"
+	// show chassis zones stuff
+	DEFAULT_CHASSIS_ZONES_CONFIG_FILE  = "chassis_zones.csv"
+	DEFAULT_CHASSIS_ZONES_RESULTS_FILE = "chassis_zones_results.csv"
+	// show chassis zones config stuff
+	DEFAULT_CHASSIS_ZONES_CONFIG_LOPT       = "chassis-zones-config"
+	DEFAULT_CHASSIS_ZONES_CONFIG_OPT        = "c"
+	DEFAULT_CHASSIS_ZONES_RESULTS_FILE_LOPT = "chassis-zones-results"
+	DEFAULT_CHASSIS_ZONES_RESULTS_FILE_OPT  = "r"
 )
 
 // Package scope variables to handle
@@ -90,9 +101,9 @@ func init() {
 		Use:   "JChecker",
 		Short: "JChecker executes requested checks on Juniper devices at user defined time intervals",
 		Long: "JChecker executes requested checks at user defined time intervals.\n\n" +
-		"It currently supports:\n" +
-		"    - show chassis environment\n" +
-		"    - show chassis zones\n",
+			"It currently supports:\n" +
+			"    - show chassis environment\n" +
+			"    - show chassis zones\n",
 	}
 
 	jChecker.LocalFlags().StringVarP(
@@ -119,8 +130,18 @@ func init() {
 		Short: "Get the chassis environment information.\n",
 		Long:  "Gets the chassis environment from the given list of IP addresses.",
 		Run: func(cmd *cobra.Command, args []string) {
-			if cmd.Flags().Lookup(DEFAULT_CHASSIS_ENV_CONFIG_LOPT).Changed {
-				cntxLog.Info("Default chassis environment config file changed")
+			log.Infof("Inside zonesCmd with args: %v", args)
+			argMap := make(map[string]bool)
+			for _, a := range args {
+				argMap[a] = true
+			}
+			if argMap["help"] == true {
+				cmd.Help()
+				os.Exit(0)
+			}
+			var err error
+			if jCheckerConfig.ChassisEnvIPs, jCheckerConfig.ChassisEnvIntervals, err = readCSV(jCheckerConfig.ChassisEnvConfigFile); err != nil {
+				log.Fatalln(err)
 			}
 		},
 	}
@@ -131,13 +152,29 @@ func init() {
 		DEFAULT_CHASSIS_ENV_CONFIG_FILE, "A csv file containing IP addresses with time intervals.",
 	)
 
+	envRequestCmd.Flags().StringVarP(
+		&jCheckerConfig.ChassisEnvResultsFile,
+		DEFAULT_CHASSIS_ENV_RESULTS_FILE_LOPT, DEFAULT_CHASSIS_ENV_RESULTS_FILE_OPT,
+		DEFAULT_CHASSIS_ENV_RESULTS_FILE, "A csv file to output results to.",
+	)
+
 	zonesCmd := &cobra.Command{
 		Use:   "zones",
 		Short: "Get the chassis zones information.\n",
 		Long:  "Gets the chassis zones information from the given list of IP addresses and timeouts.",
 		Run: func(cmd *cobra.Command, args []string) {
-			if cmd.Flags().Lookup(DEFAULT_CHASSIS_ZONES_CONFIG_LOPT).Changed {
-				cntxLog.Info("Default chassis zones config file changed")
+			log.Infof("Inside zonesCmd with args: %v", args)
+			argMap := make(map[string]bool)
+			for _, a := range args {
+				argMap[a] = true
+			}
+			if argMap["help"] == true {
+				cmd.Help()
+				os.Exit(0)
+			}
+			var err error
+			if jCheckerConfig.ChassisZonesIPs, jCheckerConfig.ChassisZonesIntervals, err = readCSV(jCheckerConfig.ChassisZonesConfigFile); err != nil {
+				log.Fatalln(err)
 			}
 		},
 	}
@@ -146,6 +183,12 @@ func init() {
 		&jCheckerConfig.ChassisZonesConfigFile,
 		DEFAULT_CHASSIS_ZONES_CONFIG_LOPT, DEFAULT_CHASSIS_ZONES_CONFIG_OPT,
 		DEFAULT_CHASSIS_ZONES_CONFIG_FILE, "A csv file containing IP addresses with time intervals.",
+	)
+
+	zonesCmd.Flags().StringVarP(
+		&jCheckerConfig.ChassisZonesResultsFile,
+		DEFAULT_CHASSIS_ZONES_RESULTS_FILE_LOPT, DEFAULT_CHASSIS_ZONES_RESULTS_FILE_OPT,
+		DEFAULT_CHASSIS_ZONES_RESULTS_FILE, "A csv file to output results to.",
 	)
 
 	jChecker.AddCommand(helpCmd)
@@ -178,4 +221,36 @@ func Execute() {
 
 func GetConfig() JCheckerConfig {
 	return *jCheckerConfig
+}
+
+func readCSV(filename string) ([]net.IP, []time.Duration, error) {
+
+	ipSlice := make([]net.IP, 0, 32)
+	durationSlice := make([]time.Duration, 32)
+
+	if file, err := os.Open(filename); err != nil {
+		log.Fatal(err)
+	} else {
+		csvReader := csv.NewReader(file)
+		csvReader.Comment = '#'
+		csvReader.FieldsPerRecord = 2
+		csvReader.TrimLeadingSpace = true
+		if records, err := csvReader.ReadAll(); err != nil {
+			log.Fatal(err)
+		} else {
+			for _, record := range records {
+				if ip := net.ParseIP(record[0]); ip == nil {
+					log.Errorln("Error parsing IP from record in given file")
+					return nil, nil, err
+				} else if duration, err := time.ParseDuration(record[1]); err != nil {
+					log.Errorln("Error parsing duration from record in given file")
+					return nil, nil, err
+				} else {
+					ipSlice = append(ipSlice, ip)
+					durationSlice = append(durationSlice, duration)
+				}
+			}
+		}
+	}
+	return ipSlice, durationSlice, nil
 }

@@ -5,5 +5,5 @@ import (
 )
 
 type Request interface {
-	Method() netconf.RawMethod
+	Run(int, chan<- *netconf.RPCReply)
 }

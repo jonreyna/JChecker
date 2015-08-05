@@ -1,22 +1,54 @@
 package main
 
 import (
-	"fmt"
 	"github.com/JReyLBC/JChecker/config"
+	"github.com/JReyLBC/JChecker/request"
+	log "github.com/Sirupsen/logrus"
+	"github.com/Juniper/go-netconf/netconf"
+	"os"
 )
 
-func main() {
+func init() {
 	config.Execute()
 
+}
+
+func main() {
 	cfg := config.GetConfig()
-	fmt.Printf("cfg.ChassisEnvConfigFile: %s\n", cfg.ChassisEnvConfigFile)
-	fmt.Printf("cfg.ChassisEnvIntervals: %v\n", cfg.ChassisEnvIntervals)
-	fmt.Printf("cfg.ChassisEnvIPs: %v\n\n", cfg.ChassisEnvIPs)
+	requests := make([]request.Request, 0, 32)
 
-	fmt.Printf("cfg.ChassisZonesConfigFile: %s\n", cfg.ChassisZonesConfigFile)
-	fmt.Printf("cfg.ChassisZonesIntervals: %v\n", cfg.ChassisZonesIntervals)
-	fmt.Printf("cfg.ChassisZonesIPs: %v\n\n", cfg.ChassisZonesIPs)
+	if cfg.ChassisZonesIPs != nil {
+		for _, ip := range cfg.ChassisZonesIPs {
+			for _, dur := range cfg.ChassisEnvIntervals {
+				requests = append(requests, request.NewChassisZonesRequest(
+					ip, dur, cfg.NetconfUsername, cfg.NetconfPassowrd))
+			}
+		}
 
-	fmt.Printf("cfg.NetconfUsername: %s\n", cfg.NetconfUsername)
-	fmt.Printf("cfg.NetconfPassword: %s\n", cfg.NetconfPassowrd)
+		var file *os.File
+		var err error
+		if file, err = os.Open(cfg.ChassisZonesResultsFile); err != nil {
+			log.Errorln("Could not open results file.")
+			log.Fatalln(err)
+		} else {
+			defer file.Close()
+		}
+
+		replyChan := make(chan *netconf.RPCReply)
+		for _, request := range requests {
+			request.Run(24, replyChan)
+		}
+
+/*		for ncReply := range replyChan {
+			resp := response.N
+
+		}*/
+	}
+/*
+	if cfg.ChassisEnvIPs != nil {
+		for _, ip := range cfg.ChassisEnvIPs {
+			for _, dur := range cfg.ChassisEnvIPs {
+			}
+		}
+	}*/
 }
