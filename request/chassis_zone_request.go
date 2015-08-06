@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	CHASSIS_ZONES_REQUEST_TMPL = "get-chassis-zones-information></get-chassis-zones-information>"
+	CHASSIS_ZONES_REQUEST_TMPL = "<get-chassis-zones-information></get-chassis-zones-information>"
 )
 
 type ChassisZonesRequest struct {

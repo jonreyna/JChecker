@@ -106,17 +106,6 @@ func init() {
 			"    - show chassis zones\n",
 	}
 
-	jChecker.LocalFlags().StringVarP(
-		&jCheckerConfig.NetconfUsername,
-		DEFAULT_NETCONF_USERNAME_LOPT, DEFAULT_NETCONF_USERNAME_OPT,
-		DEFAULT_NETCONF_USERNAME, "The username used to connect via NETCONF.",
-	)
-
-	jChecker.LocalFlags().StringVarP(
-		&jCheckerConfig.NetconfPassowrd,
-		DEFAULT_NETCONF_PASSWORD_LOPT, DEFAULT_NETCONF_PASSWORD_OPT,
-		DEFAULT_NETCONF_PASSWORD, "The password used to connect via NETCONF.",
-	)
 
 	helpCmd := &cobra.Command{
 		Run: func(cmd *cobra.Command, args []string) {
@@ -145,6 +134,18 @@ func init() {
 			}
 		},
 	}
+
+	envRequestCmd.Flags().StringVarP(
+		&jCheckerConfig.NetconfUsername,
+		DEFAULT_NETCONF_USERNAME_LOPT, DEFAULT_NETCONF_USERNAME_OPT,
+		DEFAULT_NETCONF_USERNAME, "The username used to connect via NETCONF.",
+	)
+
+	envRequestCmd.Flags().StringVarP(
+		&jCheckerConfig.NetconfPassowrd,
+		DEFAULT_NETCONF_PASSWORD_LOPT, DEFAULT_NETCONF_PASSWORD_OPT,
+		DEFAULT_NETCONF_PASSWORD, "The password used to connect via NETCONF.",
+	)
 
 	envRequestCmd.Flags().StringVarP(
 		&jCheckerConfig.ChassisEnvConfigFile,
@@ -226,7 +227,7 @@ func GetConfig() JCheckerConfig {
 func readCSV(filename string) ([]net.IP, []time.Duration, error) {
 
 	ipSlice := make([]net.IP, 0, 32)
-	durationSlice := make([]time.Duration, 32)
+	durationSlice := make([]time.Duration, 0, 32)
 
 	if file, err := os.Open(filename); err != nil {
 		log.Fatal(err)

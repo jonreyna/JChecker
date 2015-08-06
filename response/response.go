@@ -12,5 +12,5 @@ func init() {
 }
 
 type Response interface {
-	WriteCSV(io.Writer)
+	WriteCSV(io.Writer) error
 }

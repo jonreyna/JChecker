@@ -24,8 +24,8 @@ func (*ChassisEnvRequest) Method() netconf.RawMethod {
 }
 
 func NewChassisEnvRequest(loopBackIP net.IP, interval time.Duration,
-	userName, password string) *ChassisZonesRequest {
-	return &ChassisZonesRequest{
+	userName, password string) *ChassisEnvRequest {
+	return &ChassisEnvRequest{
 		LoopBackIP: loopBackIP,
 		UserName:   userName,
 		Password:   password,
