@@ -84,3 +84,10 @@ gen
 
 ## JChecker binary name
 JChecker
+
+# Default config file
+jchecker_command_config.csv
+
+# my test output file
+out_show_chassis_env.csv
+

@@ -1,11 +1,11 @@
 package request
 
 import (
+	"net"
 	"time"
 
 	"github.com/Juniper/go-netconf/netconf"
 	log "github.com/Sirupsen/logrus"
-	"net"
 )
 
 const (

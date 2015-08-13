@@ -1,4 +1,4 @@
-package response
+package reply
 
 import (
 	"io"
@@ -11,6 +11,8 @@ func init() {
 	newLine = strings.NewReplacer("\n", "")
 }
 
-type Response interface {
+type ReplyWriter interface {
 	WriteCSV(io.Writer) error
+	//WriteJSON(io.Writer) error
+	//WriteXML(io.Writer) error
 }
