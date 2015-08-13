@@ -78,7 +78,7 @@ ignore the entire line.
 Commands currently supported include:
   - show chassis environment`,
 		Run: func(cmd *cobra.Command, args []string) {
-			if len(args) != 0 {
+			if len(args) > 0 {
 				log.Errorf("Unknown command(s): %v", args)
 				cmd.Help()
 				os.Exit(1)
@@ -114,7 +114,6 @@ func Execute() {
 		log.Fatalln(err)
 	}
 	if jChecker.PersistentFlags().Lookup("help").Changed {
-		jChecker.Help()
 		os.Exit(0)
 	}
 
